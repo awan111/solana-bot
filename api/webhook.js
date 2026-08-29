@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     const body = req.body;
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    // 1. TELEGRAM BOT COMMANDS HANDLER (/price, /contract, /build, etc.)
+    // 1. TELEGRAM BOT COMMANDS HANDLER
     if (body && body.message) {
       const chatId = body.message.chat.id;
       const text = body.message.text ? body.message.text.trim() : "";
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       let replyText = "";
 
       if (text.startsWith("/start") || text.startsWith("/help")) {
-        replyText = `🤖 *LethalOrca ($LORCA) Bot Active!*\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/build - Latest build-in-public updates\n/socials - Official links`;
+        replyText = `🤖 *LethalOrca ($LORCA) Bot Active!*\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/holders - Holder milestones progress\n/referral - Refer & earn reward info\n/build - Latest build-in-public updates\n/socials - Official links`;
       } 
       else if (text.startsWith("/contract")) {
         replyText = `📌 *Official Contract Address ($LORCA):*\n\`${tokenMint}\`\n\n*(Always verify on pump.fun!)*`;
@@ -24,6 +24,12 @@ export default async function handler(req, res) {
       else if (text.startsWith("/roadmap")) {
         replyText = `🗺️ *LethalOrca Roadmap:*\n\n• *Phase 01:* Game Launch (LethalOrca Fishing)\n• *Phase 02:* Wallet Integration & Rewards\n• *Phase 03:* Marketplace & Community\n• *Phase 04:* In-Game Token Utility`;
       } 
+      else if (text.startsWith("/holders")) {
+        replyText = `🎯 *Holder Milestones & Targets:*\n\n• 100 Holders: 🔓 Unlocked!\n• 500 Holders: 🔄 In Progress...\n• 1,000 Holders: ⏳ Upcoming Community Celebration!\n\n_Keep pushing the community forward!_`;
+      }
+      else if (text.startsWith("/referral") || text.startsWith("/earn")) {
+        replyText = `⚓ *Refer & Earn System:*\n\nConnect your wallet on [lethalorca.com](https://lethalorca.com/) to get your unique referral link. Bring friends and earn bonus $LORCA rewards together!`;
+      }
       else if (text.startsWith("/build") || text.startsWith("/devlog")) {
         replyText = `🛠️ *LethalOrca Build Log (Build in Public):*\n\n• *JUL 2026:* $LORCA token live on pump.fun 🚀\n• *JUL 2026:* Backend withdrawal system deployed for Phase 2 ⚓\n• *JUL 2026:* Wallet-connect preview added to the game UI 🎮\n\n_An independent developer building in public, step by step!_`;
       }
@@ -32,6 +38,9 @@ export default async function handler(req, res) {
       } 
       else if (text.startsWith("/price")) {
         try {
+          const pumpFunUrl = `https://pump.fun/coin/${tokenMint}`;
+          
+          // Try DexScreener first
           const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`);
           const data = await response.json();
           const pair = data.pairs && data.pairs[0];
@@ -41,12 +50,23 @@ export default async function handler(req, res) {
             const mCap = pair.marketCap || pair.fdv || "N/A";
             const priceChange = pair.priceChange?.h24 || "0";
             
-            replyText = `📊 *$LORCA Live Stats:*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n🔄 *24h Change:* ${priceChange}%\n🔗 [View on DexScreener](${pair.url})`;
+            replyText = `📊 *$LORCA Live Stats (DexScreener):*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n🔄 *24h Change:* ${priceChange}%\n🔗 [View on DexScreener](${pair.url})`;
           } else {
-            replyText = `📊 *$LORCA*: Trading data loading or pair not found yet on DexScreener.`;
+            // Fallback to Pump.fun API if DexScreener pair not found yet
+            const pumpRes = await fetch(`https://frontend-api.pump.fun/coins/${tokenMint}`);
+            const pumpData = await pumpRes.json();
+
+            if (pumpData && pumpData.usd_market_cap) {
+              const mCap = pumpData.usd_market_cap;
+              const bondingProgress = pumpData.complete ? "Graduated to Raydium 🚀" : "Bonding Curve Active 🟢";
+              
+              replyText = `📊 *$LORCA Live Stats (Pump.fun):*\n\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n⚡ *Status:* ${bondingProgress}\n🔗 [View on Pump.fun](${pumpFunUrl})`;
+            } else {
+              replyText = `📊 *$LORCA*: Token is live on pump.fun! Check real-time stats directly here:\n🔗 [Pump.fun Link](${pumpFunUrl})`;
+            }
           }
         } catch (err) {
-          replyText = `⚠️ Error fetching price data right now.`;
+          replyText = `⚠️ Error fetching price data right now. Check [Pump.fun](https://pump.fun/coin/${tokenMint})`;
         }
       }
 
