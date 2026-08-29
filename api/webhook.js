@@ -40,8 +40,9 @@ export default async function handler(req, res) {
         try {
           const pumpFunUrl = `https://pump.fun/coin/${tokenMint}`;
           
-          // Try DexScreener first
-          const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`);
+          const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
           const data = await response.json();
           const pair = data.pairs && data.pairs[0];
 
@@ -52,21 +53,27 @@ export default async function handler(req, res) {
             
             replyText = `📊 *$LORCA Live Stats (DexScreener):*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n🔄 *24h Change:* ${priceChange}%\n🔗 [View on DexScreener](${pair.url})`;
           } else {
-            // Fallback to Pump.fun API if DexScreener pair not found yet
-            const pumpRes = await fetch(`https://frontend-api.pump.fun/coins/${tokenMint}`);
-            const pumpData = await pumpRes.json();
-
-            if (pumpData && pumpData.usd_market_cap) {
-              const mCap = pumpData.usd_market_cap;
-              const bondingProgress = pumpData.complete ? "Graduated to Raydium 🚀" : "Bonding Curve Active 🟢";
-              
-              replyText = `📊 *$LORCA Live Stats (Pump.fun):*\n\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n⚡ *Status:* ${bondingProgress}\n🔗 [View on Pump.fun](${pumpFunUrl})`;
+            const pumpRes = await fetch(`https://frontend-api.pump.fun/coins/${tokenMint}`, {
+              headers: { "User-Agent": "Mozilla/5.0" }
+            });
+            
+            if (pumpRes.ok) {
+              const pumpData = await pumpRes.json();
+              if (pumpData && pumpData.usd_market_cap) {
+                const mCap = pumpData.usd_market_cap;
+                const bondingProgress = pumpData.complete ? "Graduated to Raydium 🚀" : "Bonding Curve Active 🟢";
+                
+                replyText = `📊 *$LORCA Live Stats (Pump.fun):*\n\n📈 *Market Cap:* $${Number(mCap).toLocaleString()}\n⚡ *Status:* ${bondingProgress}\n🔗 [View on Pump.fun](${pumpFunUrl})`;
+              } else {
+                replyText = `📊 *$LORCA*: Token is live on pump.fun! Check real-time stats directly here:\n🔗 [Pump.fun Link](${pumpFunUrl})`;
+              }
             } else {
               replyText = `📊 *$LORCA*: Token is live on pump.fun! Check real-time stats directly here:\n🔗 [Pump.fun Link](${pumpFunUrl})`;
             }
           }
         } catch (err) {
-          replyText = `⚠️ Error fetching price data right now. Check [Pump.fun](https://pump.fun/coin/${tokenMint})`;
+          const pumpFunUrl = `https://pump.fun/coin/${tokenMint}`;
+          replyText = `📊 *$LORCA* is live on pump.fun! Check live stats here:\n🔗 [Pump.fun Link](${pumpFunUrl})`;
         }
       }
 
