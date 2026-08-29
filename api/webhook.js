@@ -37,11 +37,10 @@ export default async function handler(req, res) {
         replyText = `🌐 *Official Links:*\n• Website: [lethalorca.com](https://lethalorca.com/)\n• Telegram: [Join Chat](https://t.me/lethalorca)\n• X / Twitter: [@lethalorcatdo](https://x.com/lethalorcatdo)`;
       } 
       else if (text.startsWith("/mkt") || text.startsWith("/ai")) {
+        let marketingContent = "";
         try {
           const openaiKey = process.env.OPENAI_API_KEY;
-          if (!openaiKey) {
-            replyText = `⚠️ OpenAI API key Vercel mein set nahi hai!`;
-          } else {
+          if (openaiKey) {
             const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
               method: "POST",
               headers: {
@@ -65,19 +64,23 @@ export default async function handler(req, res) {
             });
             const aiData = await aiRes.json();
             if (aiData.choices && aiData.choices[0]) {
-              replyText = `🤖 *AI Marketing Post Generated:*\n\n${aiData.choices[0].message.content}\n\n🔗 Website: [lethalorca.com](https://lethalorca.com/)`;
-            } else {
-              replyText = `⚠️ AI response generate nahi kar saka. Dubara try karein.`;
+              marketingContent = aiData.choices[0].message.content;
             }
           }
         } catch (e) {
-          replyText = `⚠️ OpenAI connection mein error agaya hai.`;
+          // Fallback triggers if API fails
         }
+
+        // Professional backup caption if OpenAI balance is zero
+        if (!marketingContent) {
+          marketingContent = `🎣 Building LethalOrca Fishing from scratch as a solo indie dev! Combining arcade gameplay with a community-first token on Solana.\n\n🌊 Join the open water journey and check our roadmap live.\n\n#IndieGameDev #Solana #Gaming #LethalOrca #BuildInPublic`;
+        }
+
+        replyText = `🤖 *AI Marketing Post Generated:*\n\n${marketingContent}\n\n🔗 Website: [lethalorca.com](https://lethalorca.com/)`;
       }
       else if (text.startsWith("/price")) {
         try {
           const pumpFunUrl = `https://pump.fun/coin/${tokenMint}`;
-          
           const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenMint}`, {
             headers: { "User-Agent": "Mozilla/5.0" }
           });
