@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       let replyText = "";
 
       if (text.startsWith("/start") || text.startsWith("/help")) {
-        replyText = `🤖 *LethalOrca ($LORCA) Bot Active!*\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/holders - Holder milestones progress\n/referral - Refer & earn reward info\n/build - Latest build-in-public updates\n/socials - Official links`;
+        replyText = `🤖 *LethalOrca ($LORCA) Bot Active!*\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/holders - Holder milestones progress\n/referral - Refer & earn reward info\n/build - Latest build-in-public updates\n/socials - Official links\n/mkt - Generate AI Instagram marketing post`;
       } 
       else if (text.startsWith("/contract")) {
         replyText = `📌 *Official Contract Address ($LORCA):*\n\`${tokenMint}\`\n\n*(Always verify on pump.fun!)*`;
@@ -36,6 +36,44 @@ export default async function handler(req, res) {
       else if (text.startsWith("/socials")) {
         replyText = `🌐 *Official Links:*\n• Website: [lethalorca.com](https://lethalorca.com/)\n• Telegram: [Join Chat](https://t.me/lethalorca)\n• X / Twitter: [@lethalorcatdo](https://x.com/lethalorcatdo)`;
       } 
+      else if (text.startsWith("/mkt") || text.startsWith("/ai")) {
+        try {
+          const openaiKey = process.env.OPENAI_API_KEY;
+          if (!openaiKey) {
+            replyText = `⚠️ OpenAI API key Vercel mein set nahi hai!`;
+          } else {
+            const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${openaiKey}`
+              },
+              body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are an independent indie game developer building LethalOrca Fishing—a fun arcade fishing game and community token ($LORCA) on Solana pump.fun. Write a short, chill, engaging Instagram marketing caption focusing on arcade gaming, solo builder journey, and community growth. Never use spammy financial hype or guaranteed returns."
+                  },
+                  {
+                    role: "user",
+                    content: "Generate a fresh Instagram marketing post for LethalOrca ($LORCA) and the fishing game with relevant gaming hashtags."
+                  }
+                ],
+                max_tokens: 200
+              })
+            });
+            const aiData = await aiRes.json();
+            if (aiData.choices && aiData.choices[0]) {
+              replyText = `🤖 *AI Marketing Post Generated:*\n\n${aiData.choices[0].message.content}\n\n🔗 Website: [lethalorca.com](https://lethalorca.com/)`;
+            } else {
+              replyText = `⚠️ AI response generate nahi kar saka. Dubara try karein.`;
+            }
+          }
+        } catch (e) {
+          replyText = `⚠️ OpenAI connection mein error agaya hai.`;
+        }
+      }
       else if (text.startsWith("/price")) {
         try {
           const pumpFunUrl = `https://pump.fun/coin/${tokenMint}`;
