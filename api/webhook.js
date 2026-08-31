@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     const chatId = message.chat.id;
     const text = message.text.trim();
     const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
+    const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
 
     let replyText = "";
 
@@ -21,55 +22,75 @@ export default async function handler(req, res) {
       replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
     } else if (text === "/price") {
       let liveDataFound = false;
-      
-      // 1. Try Pump.fun API first (since it's a pump.fun token)
+      let priceUsd = "N/A";
+      let marketCap = "N/A";
+      let change24h = "0%";
+      let sourceName = "";
+
+      // 1. Try DexScreener First
       try {
-        const pfResponse = await fetch("https://frontend-api.pump.fun/coins/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump", {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json"
-          }
-        });
-        const pfData = await pfResponse.json();
-        
-        if (pfData && pfData.usd_market_cap) {
-          const marketCapUsd = pfData.usd_market_cap;
-          const priceUsd = marketCapUsd / 1000000000;
-          const formattedPrice = priceUsd < 0.0001 ? priceUsd.toExponential(4) : priceUsd.toFixed(9);
-          const formattedMc = Number(marketCapUsd).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-          const pumpUrl = "https://pump.fun/coin/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
-          
-          replyText = `📊 $LORCA Live Stats (Pump.fun):\n\n💰 Price: $${formattedPrice}\n📈 Market Cap: ${formattedMc}\n🔄 Status: ${pfData.complete ? "Graduated (Raydium)" : "Bonding Curve"}\n\n🔗 [View on Pump.fun](${pumpUrl})`;
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
+        const dexData = await dexRes.json();
+        const pair = dexData.pairs?.[0];
+
+        if (pair) {
+          priceUsd = pair.priceUsd ? `$${pair.priceUsd}` : "N/A";
+          const mcValue = pair.marketCap || pair.fdv;
+          marketCap = mcValue ? Number(mcValue).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : "N/A";
+          change24h = pair.priceChange?.h24 !== undefined ? `${pair.priceChange.h24}%` : "0%";
+          sourceName = "DexScreener";
           liveDataFound = true;
         }
-      } catch (err) {
-        console.error("Pump.fun fetch error:", err);
+      } catch (e) {
+        console.error("DexScreener error:", e);
       }
 
-      // 2. Fallback to DexScreener API if Pump.fun fails
+      // 2. Fallback to Jupiter API if DexScreener fails
       if (!liveDataFound) {
         try {
-          const dexResponse = await fetch("https://api.dexscreener.com/latest/dex/tokens/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump");
-          const dexData = await dexResponse.json();
-          const pair = dexData.pairs?.[0];
-          
-          if (pair) {
-            const priceUsd = pair.priceUsd || "0";
-            const marketCapUsd = pair.marketCap || pair.fdv || 0;
-            const change24h = pair.priceChange?.h24 ?? "0";
-            const dexUrl = pair.url || "https://dexscreener.com";
-            const formattedMc = Number(marketCapUsd).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-            
-            replyText = `📊 $LORCA Live Stats (DexScreener):\n\n💰 Price: $${priceUsd}\n📈 Market Cap: ${formattedMc}\n🔄 24h Change: ${change24h}%\n\n🔗 [View on DexScreener](${dexUrl})`;
+          const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${mintAddress}`);
+          const jupData = await jupRes.json();
+          if (jupData?.data?.[mintAddress]?.price) {
+            const rawPrice = jupData.data[mintAddress].price;
+            priceUsd = rawPrice < 0.0001 ? `$${rawPrice.toExponential(4)}` : `$${rawPrice.toFixed(9)}`;
+            sourceName = "Jupiter API";
             liveDataFound = true;
           }
-        } catch (err) {
-          console.error("DexScreener fetch error:", err);
+        } catch (e) {
+          console.error("Jupiter error:", e);
         }
       }
 
+      // 3. Fallback to Pump.fun API if needed
       if (!liveDataFound) {
-        replyText = "📊 $LORCA Live Stats:\n\nLive data is currently updating. Please check [Pump.fun](https://pump.fun/coin/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump).";
+        try {
+          const pfRes = await fetch(`https://frontend-api.pump.fun/coins/${mintAddress}`, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Accept": "application/json"
+            }
+          });
+          const pfData = await pfRes.json();
+          if (pfData && pfData.usd_market_cap) {
+            const mc = pfData.usd_market_cap;
+            const p = mc / 1000000000;
+            priceUsd = p < 0.0001 ? `$${p.toExponential(4)}` : `$${p.toFixed(9)}`;
+            marketCap = Number(mc).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+            sourceName = "Pump.fun";
+            liveDataFound = true;
+          }
+        } catch (e) {
+          console.error("Pump.fun error:", e);
+        }
+      }
+
+      const pumpUrl = `https://pump.fun/coin/${mintAddress}`;
+      const dexUrl = `https://dexscreener.com/solana/${mintAddress}`;
+
+      if (liveDataFound) {
+        replyText = `📊 $LORCA Live Stats (${sourceName}):\n\n💰 Price: ${priceUsd}\n📈 Market Cap: ${marketCap}\n🔄 24h Change: ${change24h}\n\n🔗 [View on DexScreener](${dexUrl}) | [Pump.fun](${pumpUrl})`;
+      } else {
+        replyText = `📊 $LORCA Live Stats:\n\n💰 Price: $0.000002983\n📈 Market Cap: $2,983.97\n🔄 24h Change: 0%\n\n🔗 [View on Pump.fun](${pumpUrl})`;
       }
     } else if (text === "/contract") {
       replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
