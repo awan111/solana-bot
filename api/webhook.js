@@ -28,12 +28,15 @@ export default async function handler(req, res) {
         if (pair) {
           const priceUsd = pair.priceUsd || "N/A";
           const marketCap = pair.marketCap || pair.fdv || "N/A";
-          replyText = `📊 *LethalOrca ($LORCA) Live Stats:*\n\n• *Price:* \$${priceUsd}\n• *Market Cap:* \$${marketCap}\n• *DEX:* ${pair.dexId || "Solana DEX"}`;
+          const change24h = pair.priceChange?.h24 ?? "0";
+          const dexUrl = pair.url || "https://dexscreener.com";
+          
+          replyText = `📊 *LethalOrca ($LORCA) Live Stats (DexScreener):*\n\n💰 *Price:* \$${priceUsd}\n📈 *Market Cap:* \$${marketCap}\n🔄 *24h Change:* ${change24h}%\n\n🔗 [View on DexScreener](${dexUrl})`;
         } else {
-          replyText = "Live price data filhal available nahi hai. Pump.fun par check karein: https://lethalorca.com/";
+          replyText = "📊 *LethalOrca ($LORCA)*\nLive price data is currently unavailable on DexScreener. Please check [DexScreener](https://dexscreener.com).";
         }
       } catch (e) {
-        replyText = "Price fetch karne mein error agaya. Pump.fun check karein: https://lethalorca.com/";
+        replyText = "⚠️ Error fetching live price from DexScreener. Please try again shortly.";
       }
     } else if (text === "/contract") {
       replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
@@ -52,7 +55,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         chat_id: chatId,
         text: replyText,
-        parse_mode: "Markdown"
+        parse_mode: "Markdown",
+        disable_web_page_preview: true
       }),
     });
 
