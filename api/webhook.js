@@ -11,9 +11,9 @@ export default async function handler(req, res) {
             const chatId = update.message.chat.id;
             const text = update.message.text;
 
-            let replyText = "Aapka message mil gaya hai!";
+            let replyText = "Message received!";
             if (text === '/start') {
-                replyText = "Salam! Solana Bot active hai aur kaam kar raha hai. 🚀";
+                replyText = "Hello! Solana Bot is active and running. 🚀";
             }
 
             const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
