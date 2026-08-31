@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
   try {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const defaultChatId = process.env.TELEGRAM_CHAT_ID; // Helius alerts ke liye chat ID
+    const defaultChatId = process.env.TELEGRAM_CHAT_ID;
     const body = req.body;
     const tokenMint = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
 
