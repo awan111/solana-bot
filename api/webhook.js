@@ -9,11 +9,20 @@ export default async function handler(req, res) {
 
         if (update && update.message) {
             const chatId = update.message.chat.id;
-            const text = update.message.text;
+            const text = update.message.text || '';
 
             let replyText = "Message received!";
+
             if (text === '/start') {
-                replyText = "Hello! Solana Bot is active and running. 🚀";
+                replyText = "Hello! Solana Bot is active and running. 🚀\n\nUse /price to check token price and contract details.";
+            } else if (text === '/price' || text.startsWith('/price')) {
+                // Replace with your actual token contract address and price fetching logic if needed
+                const tokenContract = "Your_Solana_Contract_Address_Here";
+                const tokenPrice = "$0.0054"; 
+
+                replyText = `📊 *Token Price & Contract Details*\n\n` +
+                            `• *Price:* ${tokenPrice}\n` +
+                            `• *Contract:* \`${tokenContract}\``;
             }
 
             const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
