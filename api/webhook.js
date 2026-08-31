@@ -21,7 +21,12 @@ export default async function handler(req, res) {
       replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
     } else if (text === "/price") {
       try {
-        const response = await fetch("https://frontend-api.pump.fun/coins/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump");
+        const response = await fetch("https://frontend-api.pump.fun/coins/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump", {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+          }
+        });
         const data = await response.json();
         
         if (data && data.usd_market_cap) {
