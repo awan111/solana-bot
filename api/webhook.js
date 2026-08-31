@@ -21,29 +21,24 @@ export default async function handler(req, res) {
       replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
     } else if (text === "/price") {
       try {
-        const response = await fetch("https://frontend-api.pump.fun/coins/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump", {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
-          }
-        });
+        const response = await fetch("https://api.dexscreener.com/latest/dex/tokens/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump");
         const data = await response.json();
+        const pair = data.pairs?.[0];
         
-        if (data && data.usd_market_cap) {
-          const marketCapUsd = data.usd_market_cap;
-          const totalSupply = 1000000000;
-          const priceUsd = marketCapUsd / totalSupply;
+        if (pair) {
+          const priceUsd = pair.priceUsd || "0";
+          const marketCapUsd = pair.marketCap || pair.fdv || 0;
+          const change24h = pair.priceChange?.h24 ?? "0";
+          const dexUrl = pair.url || "https://dexscreener.com";
           
-          const formattedPrice = priceUsd < 0.0001 ? priceUsd.toExponential(4) : priceUsd.toFixed(9);
-          const formattedMc = marketCapUsd.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-          const pumpUrl = "https://pump.fun/coin/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
+          const formattedMc = Number(marketCapUsd).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
           
-          replyText = `📊 *LethalOrca ($LORCA) Live Stats (Pump.fun):*\n\n💰 *Price:* \$${formattedPrice}\n📈 *Market Cap:* ${formattedMc}\n🔄 *Status:* ${data.complete ? "Graduated (Raydium)" : "Bonding Curve"}\n\n🔗 [View on Pump.fun](${pumpUrl})`;
+          replyText = `📊 *$LORCA Live Stats (DexScreener):*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* ${formattedMc}\n🔄 *24h Change:* ${change24h}%\n\n🔗 [View on DexScreener](${dexUrl})`;
         } else {
-          replyText = "📊 *LethalOrca ($LORCA)*\nLive stats currently unavailable on Pump.fun. Please check [Pump.fun](https://pump.fun/coin/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump).";
+          replyText = "📊 *$LORCA Live Stats (DexScreener):*\n\nLive data currently unavailable on DexScreener.";
         }
       } catch (e) {
-        replyText = "⚠️ Error fetching live stats from Pump.fun. Please try again shortly.";
+        replyText = "⚠️ Error fetching live stats from DexScreener.";
       }
     } else if (text === "/contract") {
       replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
