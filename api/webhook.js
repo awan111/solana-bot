@@ -33,9 +33,9 @@ export default async function handler(req, res) {
           
           const formattedMc = Number(marketCapUsd).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
           
-          replyText = `📊 *$LORCA Live Stats (DexScreener):*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* ${formattedMc}\n🔄 *24h Change:* ${change24h}%\n\n🔗 [View on DexScreener](${dexUrl})`;
+          replyText = `📊 $LORCA Live Stats (DexScreener):\n\n💰 Price: $${priceUsd}\n📈 Market Cap: ${formattedMc}\n🔄 24h Change: ${change24h}%\n\n🔗 [View on DexScreener](${dexUrl})`;
         } else {
-          replyText = "📊 *$LORCA Live Stats (DexScreener):*\n\nLive data currently unavailable on DexScreener.";
+          replyText = "📊 $LORCA Live Stats (DexScreener):\n\nLive data currently unavailable on DexScreener.";
         }
       } catch (e) {
         replyText = "⚠️ Error fetching live stats from DexScreener.";
