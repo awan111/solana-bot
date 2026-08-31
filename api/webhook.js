@@ -24,63 +24,37 @@ export default async function handler(req, res) {
       let liveDataFound = false;
       let priceUsd = "N/A";
       let marketCap = "N/A";
-      let change24h = "0";
+      let statusText = "Bonding Curve";
 
-      // 1. Try Jupiter Price API (Fast & never blocked on Vercel)
       try {
-        const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${mintAddress}`);
-        const jupData = await jupRes.json();
-        if (jupData?.data?.[mintAddress]?.price) {
-          const rawPrice = jupData.data[mintAddress].price;
-          priceUsd = rawPrice < 0.0001 ? rawPrice.toExponential(4) : rawPrice.toFixed(9);
+        const response = await fetch(`https://frontend-api.pump.fun/coins/${mintAddress}`, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json"
+          }
+        });
+        const data = await response.json();
+
+        if (data && data.usd_market_cap) {
+          const marketCapUsd = data.usd_market_cap;
+          const calculatedPrice = marketCapUsd / 1000000000;
+          
+          priceUsd = calculatedPrice < 0.0001 ? calculatedPrice.toExponential(4) : calculatedPrice.toFixed(9);
+          marketCap = Number(marketCapUsd).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+          statusText = data.complete ? "Graduated (Raydium)" : "Bonding Curve";
           liveDataFound = true;
         }
       } catch (e) {
-        console.error("Jupiter API error:", e);
-      }
-
-      // 2. Try DexScreener for Market Cap and 24h Change
-      try {
-        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
-        const dexData = await dexRes.json();
-        const pair = dexData.pairs?.[0];
-
-        if (pair) {
-          if (!liveDataFound && pair.priceUsd) {
-            priceUsd = pair.priceUsd;
-            liveDataFound = true;
-          }
-          const mcValue = pair.marketCap || pair.fdv;
-          if (mcValue) {
-            marketCap = Number(mcValue).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-          }
-          if (pair.priceChange?.h24 !== undefined) {
-            change24h = pair.priceChange.h24;
-          }
-        }
-      } catch (e) {
-        console.error("DexScreener API error:", e);
+        console.error("Pump.fun API error:", e);
       }
 
       const pumpUrl = `https://pump.fun/coin/${mintAddress}`;
       const dexUrl = `https://dexscreener.com/solana/${mintAddress}`;
 
-      if (liveDataFound || marketCap !== "N/A") {
-        replyText = `📊 *$LORCA Live Stats:*
-
-💰 *Price:* $${priceUsd}
-📈 *Market Cap:* ${marketCap}
-🔄 *24h Change:* ${change24h}%
-
-🔗 [View on Pump.fun](${pumpUrl}) | [DexScreener](${dexUrl})`;
+      if (liveDataFound) {
+        replyText = `📊 *$LORCA Live Stats (Pump.fun):*\n\n💰 *Price:* $${priceUsd}\n📈 *Market Cap:* ${marketCap}\n🔄 *Status:* ${statusText}\n\n🔗 [View on Pump.fun](${pumpUrl})`;
       } else {
-        replyText = `📊 *$LORCA Live Stats:*
-
-💰 *Price:* $0.000002983
-📈 *Market Cap:* $2,983.97
-🔄 *24h Change:* 0%
-
-🔗 [View on Pump.fun](${pumpUrl}) | [DexScreener](${dexUrl})`;
+        replyText = `📊 *$LORCA Live Stats:*\n\nLive stats are temporarily unavailable. Please check directly on [Pump.fun](${pumpUrl}).`;
       }
     } else if (text === "/contract") {
       replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
