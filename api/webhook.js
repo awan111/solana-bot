@@ -18,7 +18,23 @@ export default async function handler(req, res) {
     let replyText = "";
 
     if (text === "/start" || text === "/help") {
-      replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
+      replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
+    } else if (text === "/price") {
+      try {
+        const response = await fetch("https://api.dexscreener.com/latest/dex/tokens/7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump");
+        const data = await response.json();
+        const pair = data.pairs?.[0];
+        
+        if (pair) {
+          const priceUsd = pair.priceUsd || "N/A";
+          const marketCap = pair.marketCap || pair.fdv || "N/A";
+          replyText = `📊 *LethalOrca ($LORCA) Live Stats:*\n\n• *Price:* \$${priceUsd}\n• *Market Cap:* \$${marketCap}\n• *DEX:* ${pair.dexId || "Solana DEX"}`;
+        } else {
+          replyText = "Live price data filhal available nahi hai. Pump.fun par check karein: https://lethalorca.com/";
+        }
+      } catch (e) {
+        replyText = "Price fetch karne mein error agaya. Pump.fun check karein: https://lethalorca.com/";
+      }
     } else if (text === "/contract") {
       replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
     } else if (text === "/roadmap") {
