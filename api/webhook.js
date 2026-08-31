@@ -1,8 +1,14 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(200).json({ status: 'Bot is running' });
-  }
+const express = require('express');
+const app = express();
 
+app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.send('LethalOrca Backend is Live!');
+});
+
+// Telegram & Helius Webhook Endpoint
+app.post('/api/webhook', async (req, res) => {
   try {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const defaultChatId = process.env.TELEGRAM_CHAT_ID;
@@ -10,7 +16,7 @@ export default async function handler(req, res) {
     const tokenMint = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
 
     // 1. TELEGRAM BOT COMMANDS HANDLER (/start, /price, etc.)
-    if (body && body.message) {
+    if (body && body.message && body.message.chat) {
       const chatId = body.message.chat.id;
       const text = body.message.text ? body.message.text.trim() : "";
       let replyText = "";
@@ -131,4 +137,6 @@ export default async function handler(req, res) {
     console.error("Webhook Error:", error);
     return res.status(500).json({ error: error.message });
   }
-}
+});
+
+module.exports = app;
