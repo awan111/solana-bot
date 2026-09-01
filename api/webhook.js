@@ -15,7 +15,6 @@ app.get('/', (req, res) => {
 
 // 2. Webhook & Cron Job Handler (/api/webhook)
 app.all('/api/webhook', async (req, res) => {
-  // GET Request: Trade Monitor Cron Job
   if (req.method === "GET") {
     try {
       const response = await fetch(`https://frontend-api.pump.fun/trades/all/${mintAddress}?limit=5`, {
@@ -75,7 +74,6 @@ app.all('/api/webhook', async (req, res) => {
     }
   }
 
-  // POST Request: Telegram Webhook Commands
   if (req.method === "POST") {
     try {
       const update = req.body;
