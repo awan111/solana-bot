@@ -3,7 +3,6 @@ const app = express();
 
 app.use(express.json());
 
-let lastProcessedSignature = null;
 const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
 const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
 const targetChatId = "7586392121";
@@ -13,75 +12,15 @@ app.get('/', (req, res) => {
   res.send('LethalOrca Backend is Live!');
 });
 
-// 2. Webhook & Cron Job Handler (/api/webhook)
-app.all('/api/webhook', async (req, res) => {
-  if (req.method === "GET") {
-    try {
-      const response = await fetch(`https://frontend-api.pump.fun/trades/all/${mintAddress}?limit=5`, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Accept": "application/json"
-        }
-      });
-      const trades = await response.json();
+// 2. Single Webhook Endpoint for Helius & Telegram
+app.post('/api/webhook', async (req, res) => {
+  try {
+    const body = req.body;
 
-      if (Array.isArray(trades) && trades.length > 0) {
-        if (!lastProcessedSignature) {
-          lastProcessedSignature = trades[0].signature;
-          return res.status(200).json({ success: true, message: "Trade monitor initialized." });
-        }
-
-        const newTrades = [];
-        for (const trade of trades) {
-          if (trade.signature === lastProcessedSignature) break;
-          newTrades.push(trade);
-        }
-
-        if (newTrades.length > 0) {
-          lastProcessedSignature = trades[0].signature;
-          newTrades.reverse();
-
-          for (const trade of newTrades) {
-            const isBuy = trade.tx_type === "buy";
-            const emoji = isBuy ? "🟢" : "🔴";
-            const actionType = isBuy ? "Buy Alert!" : "Sell Alert!";
-            const solAmount = trade.sol_amount ? (trade.sol_amount / 1e9).toFixed(4) : "0";
-            const tokenAmount = trade.token_amount ? Number(trade.token_amount).toLocaleString() : "0";
-            const txUrl = `https://solscan.io/tx/${trade.signature}`;
-            const dexUrl = `https://dexscreener.com/solana/${mintAddress}`;
-            const pumpUrl = `https://pump.fun/coin/${mintAddress}`;
-
-            const alertText = `${emoji} **New ${actionType}**\n\n💰 Amount: \`${solAmount} SOL\`\n🪙 Tokens: \`${tokenAmount}\`\n\n🔗 [View TX](${txUrl}) | [DexScreener](${dexUrl}) | [Pump.fun](${pumpUrl})`;
-
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: targetChatId,
-                text: alertText,
-                parse_mode: "Markdown",
-                disable_web_page_preview: true
-              })
-            });
-          }
-        }
-      }
-
-      return res.status(200).json({ success: true, message: "Trade monitor cron executed successfully." });
-    } catch (err) {
-      console.error("Cron execution error:", err);
-      return res.status(500).json({ error: "Cron check failed" });
-    }
-  }
-
-  if (req.method === "POST") {
-    try {
-      const update = req.body;
-      const message = update.message;
-
-      if (!message || !message.text) {
-        return res.status(200).json({ ok: true });
-      }
+    // --- CASE A: Telegram Bot Message / Command ---
+    if (body.message || body.callback_query) {
+      const message = body.message;
+      if (!message || !message.text) return res.status(200).json({ ok: true });
 
       const chatId = message.chat.id;
       const text = message.text.trim();
@@ -115,21 +54,6 @@ app.all('/api/webhook', async (req, res) => {
 
         if (!liveDataFound) {
           try {
-            const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${mintAddress}`);
-            const jupData = await jupRes.json();
-            if (jupData?.data?.[mintAddress]?.price) {
-              const rawPrice = jupData.data[mintAddress].price;
-              priceUsd = rawPrice < 0.0001 ? `$${rawPrice.toExponential(4)}` : `$${rawPrice.toFixed(9)}`;
-              sourceName = "Jupiter API";
-              liveDataFound = true;
-            }
-          } catch (e) {
-            console.error("Jupiter error:", e);
-          }
-        }
-
-        if (!liveDataFound) {
-          try {
             const pfRes = await fetch(`https://frontend-api.pump.fun/coins/${mintAddress}`, {
               headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -156,7 +80,7 @@ app.all('/api/webhook', async (req, res) => {
         if (liveDataFound) {
           replyText = `📊 $LORCA Live Stats (${sourceName}):\n\n💰 Price: ${priceUsd}\n📈 Market Cap: ${marketCap}\n🔄 24h Change: ${change24h}\n\n🔗 [View on DexScreener](${dexUrl}) | [Pump.fun](${pumpUrl})`;
         } else {
-          replyText = `📊 $LORCA Live Stats:\n\n💰 Price: $0.000002983\n📈 Market Cap: $2,983.97\n🔄 24h Change: 0%\n\n🔗 [View on Pump.fun](${pumpUrl})`;
+          replyText = `📊 $LORCA Live Stats:\n\n💰 Price: $0.000002983\n📈 Market Cap: $2,983.97\n🔄 24h Change: 0%\n\n🔗 [Pump.fun](${pumpUrl})`;
         }
       } else if (text === "/contract") {
         replyText = "Contract: `7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump` (Solana)";
@@ -168,8 +92,7 @@ app.all('/api/webhook', async (req, res) => {
         replyText = "Unknown command. Use /start to see available commands.";
       }
 
-      const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-      await fetch(telegramUrl, {
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -180,14 +103,42 @@ app.all('/api/webhook', async (req, res) => {
         }),
       });
 
-      return res.status(200).json({ success: true });
-    } catch (error) {
-      console.error("Webhook processing error:", error);
+      return res.status(200).json({ ok: true });
+    }
+
+    // --- CASE B: Helius Webhook & Test Message Handler ---
+    // Helius ko foran 200 OK bhej do taake test message pass ho jaye
+    res.status(200).json({ success: true, message: "Helius webhook received" });
+
+    const transactions = Array.isArray(body) ? body : [body];
+    for (const tx of transactions) {
+      const signature = tx.signature;
+      if (!signature) continue; // Agar test message mein signature na ho toh skip kar dega
+
+      const txUrl = `https://solscan.io/tx/${signature}`;
+      const dexUrl = `https://dexscreener.com/solana/${mintAddress}`;
+      const pumpUrl = `https://pump.fun/coin/${mintAddress}`;
+
+      const alertText = `🟢 **New Trade Alert!**\n\n🔗 [View TX](${txUrl}) | [DexScreener](${dexUrl}) | [Pump.fun](${pumpUrl})`;
+
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: targetChatId,
+          text: alertText,
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        })
+      });
+    }
+
+  } catch (error) {
+    console.error("Webhook processing error:", error);
+    if (!res.headersSent) {
       return res.status(500).json({ error: "Internal Server Error" });
     }
   }
-
-  return res.status(405).json({ error: "Method not allowed" });
 });
 
 module.exports = app;
