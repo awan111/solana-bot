@@ -3,7 +3,7 @@ let lastProcessedSignature = null;
 export default async function handler(req, res) {
   const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
   const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
-  const targetChatId = process.env.TELEGRAM_CHAT_ID || "-100XXXXXXXXXX";
+  const targetChatId = "7586392121";
 
   // ==========================================
   // 1. CRON JOB HANDLER (GET REQUEST) - Active Buy & Sell Trade Monitor
