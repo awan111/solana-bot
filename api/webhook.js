@@ -1,4 +1,51 @@
 export default async function handler(req, res) {
+  const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
+  const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
+  // Set your Telegram group or channel chat ID here or via Vercel Environment Variables
+  const targetChatId = process.env.TELEGRAM_CHAT_ID || "-100XXXXXXXXXX"; 
+
+  // ==========================================
+  // 1. CRON JOB HANDLER (GET REQUEST)
+  // Used for background tracking of Buy & Sell transactions (Pump.fun / DexScreener)
+  // ==========================================
+  if (req.method === "GET") {
+    try {
+      // Fetch latest pair data and transaction volumes from DexScreener API
+      const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
+      const dexData = await dexRes.json();
+      const pair = dexData.pairs?.[0];
+
+      if (pair && pair.txns) {
+        // You can check transaction counts or recent trades here.
+        // To broadcast buy/sell alerts for any amount or whale thresholds (e.g., >= 1 SOL),
+        // integrate a database or memory store to track processed transaction IDs/signatures.
+        
+        // Example structure for broadcasting an alert to your Telegram group:
+        /*
+        const alertText = `🟢 New Buy Detected!\nAmount: 1.5 SOL\nValue: $250\n🔗 View on DexScreener`;
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: targetChatId,
+            text: alertText,
+            parse_mode: "Markdown"
+          })
+        });
+        */
+      }
+
+      return res.status(200).json({ success: true, message: "Trade monitor cron executed successfully." });
+    } catch (err) {
+      console.error("Cron execution error:", err);
+      return res.status(500).json({ error: "Cron check failed" });
+    }
+  }
+
+  // ==========================================
+  // 2. TELEGRAM WEBHOOK HANDLER (POST REQUEST)
+  // Handles incoming user messages and bot commands (/price, /start, etc.)
+  // ==========================================
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -13,11 +60,9 @@ export default async function handler(req, res) {
 
     const chatId = message.chat.id;
     const text = message.text.trim();
-    const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
-    const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
-
     let replyText = "";
 
+    // Handle bot commands
     if (text === "/start" || text === "/help") {
       replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
     } else if (text === "/price") {
@@ -27,7 +72,7 @@ export default async function handler(req, res) {
       let change24h = "0%";
       let sourceName = "";
 
-      // 1. Try DexScreener First
+      // Step 1: Try fetching from DexScreener API first
       try {
         const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
         const dexData = await dexRes.json();
@@ -45,7 +90,7 @@ export default async function handler(req, res) {
         console.error("DexScreener error:", e);
       }
 
-      // 2. Fallback to Jupiter API if DexScreener fails
+      // Step 2: Fallback to Jupiter API if DexScreener fails
       if (!liveDataFound) {
         try {
           const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${mintAddress}`);
@@ -61,7 +106,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // 3. Fallback to Pump.fun API if needed
+      // Step 3: Fallback to Pump.fun API as final resort
       if (!liveDataFound) {
         try {
           const pfRes = await fetch(`https://frontend-api.pump.fun/coins/${mintAddress}`, {
@@ -102,6 +147,7 @@ export default async function handler(req, res) {
       replyText = "Unknown command. Use /start to see available commands.";
     }
 
+    // Send response back to Telegram chat
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     await fetch(telegramUrl, {
       method: "POST",
@@ -116,7 +162,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Webhook processing error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 }
