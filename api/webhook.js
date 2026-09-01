@@ -1,38 +1,63 @@
+let lastProcessedSignature = null;
+
 export default async function handler(req, res) {
   const botToken = "8689687590:AAHSzJ_36tERZZzo4LhSMIavF30lUZI18wE";
   const mintAddress = "7RqpgT532tsYakbgnTXECC4MHTEGu5HzBxVAkAAHpump";
-  // Set your Telegram group or channel chat ID here or via Vercel Environment Variables
-  const targetChatId = process.env.TELEGRAM_CHAT_ID || "-100XXXXXXXXXX"; 
+  const targetChatId = process.env.TELEGRAM_CHAT_ID || "-100XXXXXXXXXX";
 
   // ==========================================
-  // 1. CRON JOB HANDLER (GET REQUEST)
-  // Used for background tracking of Buy & Sell transactions (Pump.fun / DexScreener)
+  // 1. CRON JOB HANDLER (GET REQUEST) - Active Buy & Sell Trade Monitor
   // ==========================================
   if (req.method === "GET") {
     try {
-      // Fetch latest pair data and transaction volumes from DexScreener API
-      const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
-      const dexData = await dexRes.json();
-      const pair = dexData.pairs?.[0];
+      const response = await fetch(`https://frontend-api.pump.fun/trades/all/${mintAddress}?limit=5`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json"
+        }
+      });
+      const trades = await response.json();
 
-      if (pair && pair.txns) {
-        // You can check transaction counts or recent trades here.
-        // To broadcast buy/sell alerts for any amount or whale thresholds (e.g., >= 1 SOL),
-        // integrate a database or memory store to track processed transaction IDs/signatures.
-        
-        // Example structure for broadcasting an alert to your Telegram group:
-        /*
-        const alertText = `🟢 New Buy Detected!\nAmount: 1.5 SOL\nValue: $250\n🔗 View on DexScreener`;
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: targetChatId,
-            text: alertText,
-            parse_mode: "Markdown"
-          })
-        });
-        */
+      if (Array.isArray(trades) && trades.length > 0) {
+        if (!lastProcessedSignature) {
+          lastProcessedSignature = trades[0].signature;
+          return res.status(200).json({ success: true, message: "Trade monitor initialized." });
+        }
+
+        const newTrades = [];
+        for (const trade of trades) {
+          if (trade.signature === lastProcessedSignature) break;
+          newTrades.push(trade);
+        }
+
+        if (newTrades.length > 0) {
+          lastProcessedSignature = trades[0].signature;
+          newTrades.reverse();
+
+          for (const trade of newTrades) {
+            const isBuy = trade.tx_type === "buy";
+            const emoji = isBuy ? "🟢" : "🔴";
+            const actionType = isBuy ? "Buy Alert!" : "Sell Alert!";
+            const solAmount = trade.sol_amount ? (trade.sol_amount / 1e9).toFixed(4) : "0";
+            const tokenAmount = trade.token_amount ? Number(trade.token_amount).toLocaleString() : "0";
+            const txUrl = `https://solscan.io/tx/${trade.signature}`;
+            const dexUrl = `https://dexscreener.com/solana/${mintAddress}`;
+            const pumpUrl = `https://pump.fun/coin/${mintAddress}`;
+
+            const alertText = `${emoji} **New ${actionType}**\n\n💰 Amount: \`${solAmount} SOL\`\n🪙 Tokens: \`${tokenAmount}\`\n\n🔗 [View TX](${txUrl}) | [DexScreener](${dexUrl}) | [Pump.fun](${pumpUrl})`;
+
+            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: targetChatId,
+                text: alertText,
+                parse_mode: "Markdown",
+                disable_web_page_preview: true
+              })
+            });
+          }
+        }
       }
 
       return res.status(200).json({ success: true, message: "Trade monitor cron executed successfully." });
@@ -44,7 +69,6 @@ export default async function handler(req, res) {
 
   // ==========================================
   // 2. TELEGRAM WEBHOOK HANDLER (POST REQUEST)
-  // Handles incoming user messages and bot commands (/price, /start, etc.)
   // ==========================================
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -62,7 +86,6 @@ export default async function handler(req, res) {
     const text = message.text.trim();
     let replyText = "";
 
-    // Handle bot commands
     if (text === "/start" || text === "/help") {
       replyText = "🤖 LethalOrca ($LORCA) Bot Active!\n\nAvailable commands:\n/price - Check live price & market cap\n/contract - Get official token contract\n/roadmap - View project phases\n/socials - Official links";
     } else if (text === "/price") {
@@ -72,7 +95,6 @@ export default async function handler(req, res) {
       let change24h = "0%";
       let sourceName = "";
 
-      // Step 1: Try fetching from DexScreener API first
       try {
         const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
         const dexData = await dexRes.json();
@@ -90,7 +112,6 @@ export default async function handler(req, res) {
         console.error("DexScreener error:", e);
       }
 
-      // Step 2: Fallback to Jupiter API if DexScreener fails
       if (!liveDataFound) {
         try {
           const jupRes = await fetch(`https://price.jup.ag/v4/price?ids=${mintAddress}`);
@@ -106,7 +127,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Step 3: Fallback to Pump.fun API as final resort
       if (!liveDataFound) {
         try {
           const pfRes = await fetch(`https://frontend-api.pump.fun/coins/${mintAddress}`, {
@@ -147,7 +167,6 @@ export default async function handler(req, res) {
       replyText = "Unknown command. Use /start to see available commands.";
     }
 
-    // Send response back to Telegram chat
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     await fetch(telegramUrl, {
       method: "POST",
