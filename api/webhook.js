@@ -63,16 +63,16 @@ export default async function handler(req, res) {
       const isWhale = solAmount >= 1;
 
       let message = isWhale 
-        ? `🐋 *WHALE ALERT! Massive Buy Detected!*\n\n` 
-        : `🚨 *New Pump.fun / Solana Alert!*\n\n`;
+        ? `WHALE ALERT! Massive Buy Detected!\n\n` 
+        : `New Pump.fun / Solana Alert!\n\n`;
 
-      message += `📌 *Type:* ${type}\n`;
+      message += `Type: ${type}\n`;
       if (solAmount > 0) {
-        message += `💰 *SOL Amount:* ${solAmount.toFixed(2)} SOL\n`;
+        message += `SOL Amount: ${solAmount.toFixed(2)} SOL\n`;
       }
-      message += `📝 *Details:* ${description}\n`;
+      message += `Details: ${description}\n`;
       if (signature) {
-        message += `🔗 [View on Solscan](https://solscan.io/tx/${signature})`;
+        message += `View on Solscan: https://solscan.io/tx/${signature}`;
       }
 
       if (botToken && chatId) {
@@ -81,8 +81,8 @@ export default async function handler(req, res) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chat_id: chatId,
-            text: message,
-            parse_mode: "Markdown"
+            text: message
+            // parse_mode yahan se hata diya hai taake formatting error na aaye
           }),
         });
       }
